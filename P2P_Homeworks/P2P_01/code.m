@@ -11,19 +11,27 @@ L5 = 1;
 L6 = 1;
 L7 = 0.2;
 
-% syms L3 L2 L4 L7 L6 theta
-% rz = @(th) [cos(th) -sin(th) 0; sin(th) cos(th) 0; 0 0 1];
-% rx = @(th) [1 0 0; 0 cos(th) -sin(th); 0 sin(th) cos(th)];
-% ry = @(th) [cos(th) 0 sin(th); 0 1 0; -sin(th) 0 cos(th)];
-% 
-% A_O_AUX = Tm(rz(theta),[-L3;L2;L6]) * Tm(ry(pi/2),[L4;0;L7]) * Tm(rz(pi/2),[0;0;0])
-% 
-
-
 
 %% Matrices
-
 Tm = @(r,p) [r p; zeros(1,3) 1];
+
+
+
+syms L3 L2 L4 L7 L6 L5 theta
+rz = @(th) [cos(th) -sin(th) 0; sin(th) cos(th) 0; 0 0 1];
+rx = @(th) [1 0 0; 0 cos(th) -sin(th); 0 sin(th) cos(th)];
+ry = @(th) [cos(th) 0 sin(th); 0 1 0; -sin(th) 0 cos(th)];
+
+A_O_AUX = Tm(rz(theta),[-L3;L2;L6]) * Tm(ry(pi/2),[L4;0;L7]) * Tm(rz(pi/2),[0;0;0])
+vpa(A_O_AUX)
+
+A_O_AUX = Tm(rz(theta),[-L3;L2;L6]) * Tm(rx(pi/2),[0;-L5/2;0])
+vpa(A_O_AUX)
+
+
+
+
+
 
 A_O_AUX =  Tm(rotz(theta),[-L3;L2;L6]);
 A_O_LA  =  A_O_AUX * Tm(rotx(-90),[0;+L5/2;0]);
