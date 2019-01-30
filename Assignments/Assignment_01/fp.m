@@ -1,3 +1,5 @@
+% Developer: Lucas Rath (https://github.com/lucasrm25)
+
 classdef fp
     properties
     end
