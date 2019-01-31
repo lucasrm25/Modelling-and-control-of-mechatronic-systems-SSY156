@@ -5,9 +5,9 @@ L2 = 0.132;
 syms q1 q2 q3
 q = [q1 q2 q3];
 
-T_0_1 = rb.Tm_DH(0,-sym(pi)/2,0,q1);
-T_1_2 = rb.Tm_DH(L1,0,0,q2);
-T_2_3 = rb.Tm_DH(L2,0,0,q3-sym(pi)/2);
+T_0_1 = rb.T_DH(0,-sym(pi)/2,0,q1);
+T_1_2 = rb.T_DH(L1,0,0,q2);
+T_2_3 = rb.T_DH(L2,0,0,q3-sym(pi)/2);
 T_0_3 = T_0_1 * T_1_2 * T_2_3;
 
 
@@ -49,7 +49,7 @@ vpa(T_0_3_fun([p3_resp.q1, p3_resp.q2, p3_resp.q3]))*[0 0 0 1]'
 
 z0 = [0 0 1]';
 z1 = T_0_1(1:3,1:3)*z0;
-z2 = T_1_2(1:3,1:3)*T_0_1(1:3,1:3)*z0;
+z2 = T_0_1(1:3,1:3)*T_1_2(1:3,1:3)*z0;
 
 p0 = [0 0 0 1]';            % selection of 4th column
 p1 = T_0_1 * p0;

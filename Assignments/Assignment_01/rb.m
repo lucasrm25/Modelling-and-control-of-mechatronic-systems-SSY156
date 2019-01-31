@@ -31,7 +31,18 @@ classdef rb
                  zeros(3) Tphi];
         end
         
-        function T = Tm_DH(a,alpha,d,theta)
+        % Homogeneous transformation matrix using Denavit-Hartenberg (DH) Convention
+        % Output:   cell array of T matrices given a DH table
+        % Input:    DH_table (Nx4)  Link_i= [a_i,alpha_i,d_i,theta_i]
+        function T = T_DH_table(DH_table)
+            T = cell(size(DH_table,1),1);
+            for i=1:size(DH_table,1)
+                T{i} = rb.T_DH( DH_table(i,1),DH_table(i,2),DH_table(i,3),DH_table(i,4) );
+            end
+        end
+        
+        % Homogeneous transformation matrix using Denavit-Hartenberg Convention
+        function T = T_DH(a,alpha,d,theta)
             translation = [a*cos(theta); a*sin(theta); d];
             rotation = [cos(theta) -sin(theta)*cos(alpha)  sin(theta)*sin(alpha);
                         sin(theta)  cos(theta)*cos(alpha) -cos(theta)*sin(alpha);
@@ -39,13 +50,14 @@ classdef rb
             T = rb.Tm(rotation,translation);
         end
         
-        function plot(V)
-            quiver3( repmat(V(1,1),3,1), repmat(V(2,1),3,1), repmat(V(3,1),3,1),...
-                            V(1,2:4)'-repmat(V(1,1),3,1), V(2,2:4)'-repmat(V(2,1),3,1), V(3,2:4)'-repmat(V(3,1),3,1),...
+        % Plot axis given homogeneous transformation matrix T
+        function plot(T)
+            quiver3( repmat(T(1,1),3,1), repmat(T(2,1),3,1), repmat(T(3,1),3,1),...
+                            T(1,2:4)'-repmat(T(1,1),3,1), T(2,2:4)'-repmat(T(2,1),3,1), T(3,2:4)'-repmat(T(3,1),3,1),...
                             'LineWidth',3, 'MaxHeadSize',0.5);
-            text(V(1,2),V(2,2),V(3,2),'x');
-            text(V(1,3),V(2,3),V(3,3),'y');
-            text(V(1,4),V(2,4),V(3,4),'z');
+            text(T(1,2),T(2,2),T(3,2),'x');
+            text(T(1,3),T(2,3),T(3,3),'y');
+            text(T(1,4),T(2,4),T(3,4),'z');
         end
     end
 end
