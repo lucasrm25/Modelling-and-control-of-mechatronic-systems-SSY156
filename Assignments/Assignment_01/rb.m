@@ -1,8 +1,7 @@
 % Developer: Lucas Rath (https://github.com/lucasrm25)
 
 classdef rb
-    % Robotics library
-    
+    % Robotics library  
     
     properties (Constant)
         % Homogeneous transformation matrix
@@ -17,12 +16,14 @@ classdef rb
     methods (Static)
         
         % Euler angle (ZYZ) velocities to base angular velocities
-        % Analytical to geometrical Jacobian
+        % Transformation matrix that converts analytical Jacobian to
+        % geometrical one
+        % Output: Jacobian matrix
         %   First 3 rows = linear velocities
         %   Last  3 rows = angular velocities
-        function T = T_anal2geom(anal)
-            phi = anal(1);
-            theta = anal(2);
+        function T = T_anal2geom(T_anal)
+            phi = T_anal(1);
+            theta = T_anal(2);
             % psi = anal(3);
             Tphi = [0 -sin(phi) cos(phi)*sin(theta) ;
                     0  cos(phi) sin(phi)*sin(theta) ;
@@ -31,8 +32,34 @@ classdef rb
                  zeros(3) Tphi];
         end
         
+        % Calculate Geometrical Jacobian for revolute joints
+        % Input:    Cell array of Homogeneous Transformation Matrices for link
+        %           1 until link N
+        function J_geom = J_geom_rev(T_DH_cell)
+            n_links = size(T_DH_cell,1);
+            
+            T_0_i{1} = T_DH_cell{1};
+            z{1} = [0 0 1]';                        % z0
+            p{1} = [0 0 0 1]';                      % p0
+            for i=2:n_links
+                T_0_i{i} = T_0_i{i-1} * T_DH_cell{i};
+                z{i} = T_0_i{i-1}(1:3,1:3) * z{1};    % z{2} = z1 = R_0_1 * z0
+                p{i} = T_0_i{i-1}          * p{1};    % p{2} = p1 = A_0_1 * p0
+            end
+            pe = T_DH_cell{n_links} * p{n_links-1}; 
+
+            sel = [eye(3) zeros(3,1)];              % remove last row from vector
+            J_geom = sym(zeros(6,n_links-1));
+            for i=1:n_links
+                J_geom(1:3,i) = cross(z{i},sel*(pe-p{i}));
+                J_geom(4:6,i) = z{i};
+            end
+            J_geom = simplify(J_geom);
+        end
+        
         % Homogeneous transformation matrix using Denavit-Hartenberg (DH) Convention
-        % Output:   cell array of T matrices given a DH table
+        % Output:   Cell array of Homogeneous Transformation Matrices for N
+        %           links
         % Input:    DH_table (Nx4)  Link_i= [a_i,alpha_i,d_i,theta_i]
         function T = T_DH_table(DH_table)
             T = cell(size(DH_table,1),1);
