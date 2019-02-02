@@ -15,16 +15,16 @@ classdef rb
     
     methods (Static)
         
-        % Euler angle (ZYZ) velocities to base angular velocities
-        % Transformation matrix that converts analytical Jacobian to
-        % geometrical one
-        % Output: Jacobian matrix
-        %   First 3 rows = linear velocities
-        %   Last  3 rows = angular velocities
-        function T = T_anal2geom(T_anal)
-            phi = T_anal(1);
-            theta = T_anal(2);
-            % psi = anal(3);
+        % Transformation matrix that converts analytical Jacobian (ZYZ
+        % Euler) to geometrical one
+        % Input:    ZYZ Euler angles
+        % Output:   Jacobian matrix
+        %           First 3 rows = linear velocities
+        %           Last  3 rows = angular velocities
+        function T = T_zyz2geom(eulZYZ)
+            phi   = eulZYZ(1);
+            theta = eulZYZ(2);
+            psi   = eulZYZ(3); %#ok<NASGU>
             Tphi = [0 -sin(phi) cos(phi)*sin(theta) ;
                     0  cos(phi) sin(phi)*sin(theta) ;
                     1  0        cos(theta)           ];

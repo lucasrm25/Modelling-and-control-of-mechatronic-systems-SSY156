@@ -7,11 +7,7 @@ d5=0.4;
 d7=0.131;
 
 q0 = [pi/6; -pi/3; 0; -pi/3; -pi/6; pi/2; pi/2];
-
 q = sym('q',[7,1]);
-% v = 
-% dq= 
-
 
 %% Define the transformation matrices and rotation matrices:
 
@@ -26,15 +22,20 @@ DH_table = [0 -pi/2 d1 q(1);
 T = rb.T_DH_table(DH_table);    % T{i} = T^{i-1}_i
 
 
-%% Define Z vector and P vectors:
+%% Define Analytical Jacobian
+
+T_0_e = eye(4);
+for i=1:numel(T)
+    T_0_e = T_0_e * T{i};
+end
 
 % Calculate Geometric Jacobian for revolute joints
 J_geom = rb.J_geom_rev(T);
 
 digits(10);
 J=dre(vpa(J_geom));
-
 matlabFunction(J,'File','Jacobian_KUKA7','Vars',{q},'Optimize',false);
+matlabFunction(T_0_e,'File','KUKA_FKin','Vars',{q},'Optimize',false);
 fprintf("Geometric Jacobian written to file!! READY!\n")
 
 

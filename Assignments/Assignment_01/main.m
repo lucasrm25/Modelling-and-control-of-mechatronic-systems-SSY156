@@ -1,4 +1,5 @@
 clear all; close all; clc;
+%% OmniBundle parameters
 
 L1 = 0.132;
 L2 = 0.132;
@@ -20,9 +21,11 @@ T_0_3_fun(q_val)
 
 q_val = [0.67 -0.15 2.7];
 T_0_3_fun(q_val)
+fp.m2latex(T_0_3_fun(q_val));
 
 q_val = [-0.73 0.25 1.5];
 T_0_3_fun(q_val)
+fp.m2latex(T_0_3_fun(q_val));
 
 
 %% Question 2
@@ -33,13 +36,13 @@ T_0_3_fun(q_val)
 p3 = [0.06 0.04 0.02 1]';
 p3_resp = vpasolve( T_0_3_fun(q)*[0 0 0 1]' == p3 );
 
-fprintf("q1: %.3f\nq2: %.3f\nq1: %.3f\n\n", p3_resp.q1, p3_resp.q2, p3_resp.q3 )
+fprintf("q1: %.3f\nq2: %.3f\nq3: %.3f\n\n", p3_resp.q1, p3_resp.q2, p3_resp.q3 )
 vpa(T_0_3_fun([p3_resp.q1, p3_resp.q2, p3_resp.q3]))*[0 0 0 1]'
 
 p3 = [0.0847 0.0123 -0.005 1]';
 p3_resp = vpasolve( T_0_3_fun(q)*[0 0 0 1]' == p3 );
 
-fprintf("q1: %.3f\nq2: %.3f\nq1: %.3f\n\n", p3_resp.q1, p3_resp.q2, p3_resp.q3 )
+fprintf("q1: %.3f\nq2: %.3f\nq3: %.3f\n\n", p3_resp.q1, p3_resp.q2, p3_resp.q3 )
 vpa(T_0_3_fun([p3_resp.q1, p3_resp.q2, p3_resp.q3]))*[0 0 0 1]'
 
 
@@ -65,7 +68,7 @@ J_geom = simplify(J_geom)
 syms phi theta psi
 eulZYZ = [phi theta psi].';     % rotm2eul(T_0_3(1:3,1),'ZYZ')
 
-J_analit = rb.T_anal2geom(eulZYZ) \ J_geom;
+J_analit = rb.T_zyz2geom(eulZYZ) \ J_geom;
 J_analit = simplify(J_analit)
 
 
