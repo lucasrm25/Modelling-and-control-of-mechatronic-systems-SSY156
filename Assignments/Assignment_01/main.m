@@ -17,15 +17,13 @@ T_0_3 = T_0_1 * T_1_2 * T_2_3;
 T_0_3_fun = matlabFunction(T_0_3,'Vars',{[q1 q2 q3]});
 
 q_val = [0 0 0];
-T_0_3_fun(q_val)
+T_0_3_fun(q_val)*[0 0 0 1]'
 
 q_val = [0.67 -0.15 2.7];
-T_0_3_fun(q_val)
-fp.m2latex(T_0_3_fun(q_val));
+T_0_3_fun(q_val)*[0 0 0 1]'
 
 q_val = [-0.73 0.25 1.5];
-T_0_3_fun(q_val)
-fp.m2latex(T_0_3_fun(q_val));
+T_0_3_fun(q_val)*[0 0 0 1]'
 
 
 %% Question 2
