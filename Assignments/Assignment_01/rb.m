@@ -46,8 +46,8 @@ classdef rb
                 z{i} = T_0_i{i-1}(1:3,1:3) * z{1};    % z{2} = z1 = R_0_1 * z0
                 p{i} = T_0_i{i-1}          * p{1};    % p{2} = p1 = A_0_1 * p0
             end
-            pe = T_DH_cell{n_links} * p{n_links-1}; 
-
+            pe = T_0_i{n_links} * p{1};
+            
             sel = [eye(3) zeros(3,1)];              % remove last row from vector
             J_geom = sym(zeros(6,n_links-1));
             for i=1:n_links

@@ -6,7 +6,6 @@ d3=0.42;
 d5=0.4;
 d7=0.131;
 
-q0 = [pi/6; -pi/3; 0; -pi/3; -pi/6; pi/2; pi/2];
 q = sym('q',[7,1]);
 
 %% Define the transformation matrices and rotation matrices:
@@ -19,6 +18,7 @@ DH_table = [0 -pi/2 d1 q(1);
             0  pi/2 0  q(6);
             0     0 d7 q(7)];
 
+% DH_table (Nx4)  Link_i= [a_i,alpha_i,d_i,theta_i]
 T = rb.T_DH_table(DH_table);    % T{i} = T^{i-1}_i
 
 
@@ -39,19 +39,14 @@ matlabFunction(T_0_e,'File','KUKA_FKin','Vars',{q},'Optimize',false);
 fprintf("Geometric Jacobian written to file!! READY!\n")
 
 
-%% Define Trajectory
+%% Set initial conditions
 
-syms t
-p= [-0.2;
-    -0.0008*t^3 + 0.012*t^2 - 0.2;
-    1];
-v = diff(p,t);
-v_fun = matlabFunction(v);
+q0 = [pi/6; -pi/3; 0; -pi/3; -pi/6; pi/2; pi/2];
 
 
-%% Question 4)c
+%% Define controller gain
 
-p_desired = [-0.2 0.2 1];
+K = eye(6)*1;
 
 
 

@@ -64,7 +64,7 @@ J_geom = [cross(z0,sel*(pe-p0)), cross(z1,sel*(pe-p1)), cross(z2,sel*(pe-p2));
 J_geom = simplify(J_geom)
 
 syms phi theta psi
-eulZYZ = [phi theta psi].';     % rotm2eul(T_0_3(1:3,1),'ZYZ')
+eulZYZ = [phi theta psi].';     % rotm2eul(T_0_3(1:3,1:3),'ZYZ')
 
 J_analit = rb.T_zyz2geom(eulZYZ) \ J_geom;
 J_analit = simplify(J_analit)
