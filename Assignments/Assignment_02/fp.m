@@ -30,7 +30,7 @@ classdef fp
                 matrix = sym(matrix);
             end
             latexcode = latex(vpa(simplify(matrix)));
-            if strcmp(latexcode(6),'(') && strcmp(latexcode(end),')')
+            if numel(latexcode)>=6 && strcmp(latexcode(6),'(') && strcmp(latexcode(end),')')
                 latexcode(6) = '[';
                 latexcode(end) = ']';
             end

@@ -36,14 +36,14 @@ A_0_3_fun(q_val)*[0 0 0 1]';
 % Match the position of the end-effector (T_0_3_fun(q)*[0 0 0 1]') in the
 % base coordinates to a specific position p3
 
-p3 = [0.06 0.04 0.02 1]';
-p3_resp = vpasolve( A_0_3_fun(q)*[0 0 0 1]' == p3 );
+p3_val = [0.06 0.04 0.02 1]';
+p3_resp = vpasolve( A_0_3_fun(q)*[0 0 0 1]' == p3_val );
 
 fprintf("q1: %.3f\nq2: %.3f\nq3: %.3f\n\n", p3_resp.q1, p3_resp.q2, p3_resp.q3 )
 vpa(A_0_3_fun([p3_resp.q1, p3_resp.q2, p3_resp.q3]'))*[0 0 0 1]';
 
-p3 = [0.0847 0.0123 -0.005 1]';
-p3_resp = vpasolve( A_0_3_fun(q)*[0 0 0 1]' == p3 );
+p3_val = [0.0847 0.0123 -0.005 1]';
+p3_resp = vpasolve( A_0_3_fun(q)*[0 0 0 1]' == p3_val );
 
 fprintf("q1: %.3f\nq2: %.3f\nq3: %.3f\n\n", p3_resp.q1, p3_resp.q2, p3_resp.q3 )
 vpa(A_0_3_fun([p3_resp.q1, p3_resp.q2, p3_resp.q3]'))*[0 0 0 1]';
@@ -76,9 +76,9 @@ J_analit = simplify(J_analit);
 
 %% Question 2 (Assignment 02)
 
-pl{1} = p1;
-pl{2} = p2 + A{1} * A{2} * [-L1/2 0 0 1].';
-pl{3} = p3 + A{1} * A{2} * A{3} * [-L2/2 0 0 1].';
+pl{1} = A{1} * p1;
+pl{2} = A{1} * A{2} * [-L1/2 0 0 1].';
+pl{3} = A{1} * A{2} * A{3} * [-L2/2 0 0 1].';
 
 J_l{1} = [cross(z0,sel*(pl{1}-p0)), zeros(3,2);
           z0, zeros(3,2)];
@@ -92,7 +92,7 @@ m = [0 m2 m3];
 I{1} = diag(sym('I1_',[3,1]));
 I{2} = diag(sym('I2_',[3,1]));
 I{3} = diag(sym('I3_',[3,1]));
-      
+
 
 % A{i} = A^{i-1}_i
 A_0_{1} = A{1};
@@ -105,6 +105,7 @@ for i=1:3
     B = B + J_l{i}(1:3,:).' *                    m(i)                      * J_l{i}(1:3,:) + ...
             J_l{i}(4:6,:).' * A_0_{i}(1:3,1:3) * I{i} * A_0_{i}(1:3,1:3).' * J_l{i}(4:6,:);
 end
+B = simplify(B);
 T = 0.5*dq.'*B*dq;
 simplify(T);
 
@@ -117,26 +118,205 @@ for i=1:3
 end
 simplify(U);
 
-% Calculate generalized forces
+% Generalized forces
 xi = sym('xi',[3,1]);
 
 L = T - U;
 
-fp.m2latex(pl{1})
-fp.m2latex(pl{2})
-fp.m2latex(pl{3})
-fp.m2latex(J_l{1})
-fp.m2latex(J_l{2})
-fp.m2latex(J_l{3})
-fp.m2latex(A_0_{1})
-fp.m2latex(A_0_{2})
-fp.m2latex(A_0_{3})
-fp.m2latex(T)
-fp.m2latex(U)
+% fp.m2latex(pl{1})
+% fp.m2latex(pl{2})
+% fp.m2latex(pl{3})
+% fp.m2latex(J_l{1})
+% fp.m2latex(J_l{2})
+% fp.m2latex(J_l{3})
+% fp.m2latex(A_0_{1})
+% fp.m2latex(A_0_{2})
+% fp.m2latex(A_0_{3})
+% fp.m2latex(T)
+% fp.m2latex(U)
 
 
+%% Question 3
+
+% Equations of motion
+gvec = jacobian(U,q).';
+
+dB = sym(zeros(3,3));
+for i=1:numel(B)
+    dB(i) = jacobian(B(i),q)*dq;
+end
+coriolis_centr = dB*dq - 0.5*jacobian(dq.'*B*dq, q).';
+
+for i=1:numel(q)
+    H{i} = hessian(coriolis_centr(i),dq);
+end
+
+DYNEQ = B*ddq + coriolis_centr + gvec == xi;
+
+% gradL = gradient(L,dq);
+% simplify(jacobian(gradL,q)*dq + jacobian(gradL,dq)*ddq - gradient(L,q) - (B*ddq + coriolis_centr + gvec))
+
+% fp.m2latex(gvec)
+% fp.m2latex(H{2}(2,3))
+% fp.m2latex(H{3}(1,1))
+% fp.m2latex(H{3}(1,2))
       
-      
-      
-      
+%% Question 4a
+
+% simplify(DYNEQ)
+
+Pi = [I{1}(2,2); diag(I{2}); diag(I{3});
+          L2^2*m3; L1*L2*m3; L1^2*m3; L1*m3; L2*m3; % L2^2*m3; 
+          L1^2*m2;  L1*m2]; % L2^2*m3; L2*m3;
+Pi_aux = sym('aux',[numel(Pi),1]);
+Y_Pi = subs(expand(DYNEQ), Pi, Pi_aux);
+
+[Y,Tao]=equationsToMatrix(Y_Pi,Pi_aux);
+Y=vpa(simplify(Y));
+
+
+if false
+    for j=1:size(Y,1)
+        for i=1:size(Y,2)
+            if any(Y(:,i)~= 0)
+                txt = strrep(latex(simplify(Y(j,i))), 'ddq', '\ddot q');
+                txt = strrep(txt, 'dq', '\dot q');
+                fprintf('\\scriptsize $%20s$ & \\scriptsize $%150s$ \\\\  \n',latex(Pi(i)),txt);
+            end
+        end
+        fprintf('\n')
+    end
+    for j=1:size(Y,1)
+        for i=1:size(Y,2)
+            if any(Y(:,i)~= 0)
+                fprintf('%20s * %s \n',Pi(i),simplify(Y(j,i)));
+            end
+        end
+        fprintf('\n')
+    end
+end
+
+%% Question 4a
+
+resp = {};
+for j=1:size(Y,2)
+    if any(jacobian(Y(:,j),g) ~= 0)
+        resp{1,end+1} = 0;
+        for i=1:size(Y,1)
+            resp{i,end} = Y(i,j);
+        end
+        fprintf('%s \\\\ \n',Pi(j))
+    end
+end
+
+
+for i=1:size(resp,1)
+    for j=1:size(resp,2)
+        txt = strrep(latex(simplify(sym(resp{i,j}))), 'ddq', '\ddot q');
+        txt = strrep(txt, 'dq', '\dot q');
+        fprintf('%s ',txt);
+        if j<size(resp,2)
+            fprintf(' & ');
+        end
+    end
+    fprintf(' & \\hdots \\\\ \n')
+end
+
+
+%% Question 4c
+close all
+
+data = load('workspace_lab2_rev3.mat');
+
+figure('Color','white','Position',[359.4000  561.8000  745.6000  134.4000])
+subplot(1,2,1)
+plot(data.q(:,1), data.q(:,2:4))
+xlabel 'time [s]', ylabel 'Joint angles q [rad]';
+legend({'q_1','q_2','q_3'})
+subplot(1,2,2)
+plot(data.Torque(:,1), data.Torque(:,2:4))
+xlabel 'time [s]', ylabel 'Joint torques \xi [Nm]';
+legend({'\xi_1','\xi_2','\xi_3'})
+% fp.savefig('omni')
+
+
+%% Question 4d
+
+Y_fun = matlabFunction(Y,'Vars',{g q dq ddq});
+
+N = ceil(numel(data.time));
+n = size(Y,1);
+Ydata = zeros(N*n, size(Y,2));
+xidata = zeros(N*n, 1);
+for i=1:N
+    Ydata(n*i-n+1:n*i,:) = Y_fun(9.81, data.q(i,2:4)', data.dq(i,2:4)', data.qdd(i,2:4)');
+    xidata(n*i-n+1:n*i,1) = data.Torque(i,2:4)';
+end
+
+Ybar = Ydata(10000:13000,:);
+xibar = xidata(10000:13000,:);
+Pibar = (Ybar'*Ybar) \ Ybar' * xibar
+
+rank(Ybar'*Ybar)
+rank(Y'*Y)
+ 
+
+Pi
+vpasolve(Pibar==Pi);
+
+m2L1 = vpasolve(Pibar(13:14)==Pi(13:14));
+m2L1.m2
+m2L1.L1
+
+
+%% Question 5
+
+unkownvars     = [I{1}(2,2) diag(I{2}).' diag(I{3}).' L1 L2 m2 m3];
+unkownvars_val = [0.1     0 0.01 0.01   0 0.01 0.01   0.132 0.132  1 1];
+
+dyn_omni_bundle = B*ddq + coriolis_centr + gvec - xi;
+dyn_omni_bundle = subs(dyn_omni_bundle, unkownvars, unkownvars_val);
+
+[Adyn,bdyn]=equationsToMatrix(dyn_omni_bundle,ddq);
+
+dyn_omni_bundle_fun = matlabFunction( simplify(Adyn\bdyn), 'Vars', {g, q,dq,xi}, 'File', 'dyn_omni_bundle_fun');
+
+q0  = [0 0 0]';
+dq0 = [0.1 0 0]';
+
+sim('omnibundle.slx')
+
+%% Animation
+
+% simdata = data.q;
+
+close all;
+
+p1_fun = [0 0 0]';
+p2_fun = matlabFunction( subs(p2(1:3),unkownvars, unkownvars_val), 'Vars', {q});
+p3_fun = matlabFunction( subs(pe(1:3),unkownvars, unkownvars_val), 'Vars', {q});
+
+figure('Color','white'), hold on, grid on, axis square;
+lin2 = plot3( [0 [1 0 0]*p2_fun(q0)] ,[0 [0 1 0]*p2_fun(q0)], [0 [0 0 1]*p2_fun(q0)] ,'LineWidth',3);
+lin3 = plot3( [0 [1 0 0]*p3_fun(q0)] ,[0 [0 1 0]*p3_fun(q0)], [0 [0 0 1]*p3_fun(q0)] ,'LineWidth',3);
+xlim([-2*0.132 2*0.132])
+ylim([-2*0.132 2*0.132])
+zlim([-2*0.132 2*0.132])
+view(45,15)
+tic
+for i=1:length(simdata)
+    p2_val = p2_fun(simdata(i,2:4)');
+    p3_val = p3_fun(simdata(i,2:4)');
+    lin2.XData = [0 p2_val(1)];
+    lin2.YData = [0 p2_val(2)];
+    lin2.ZData = [0 p2_val(3)];
+    lin3.XData = [p2_val(1) p3_val(1)];
+    lin3.YData = [p2_val(2) p3_val(2)];
+    lin3.ZData = [p2_val(3) p3_val(3)];
+    drawnow();
+    pause(simdata(i,1)-toc)
+    if mod(i,10)==0
+        fprintf('%f\n',toc)
+    end
+end
 
