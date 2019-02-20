@@ -221,6 +221,11 @@ end
 % 
 % terms = children(expand(DYNEQ))
 % terms{1}.'
+if false
+    for i=1:numel(Pi)
+        fprintf('%s')
+    end
+end
 
 
 if false
@@ -317,18 +322,22 @@ for i=1:N
     xidata(n*i-n+1:n*i,1) = data.Torque(i,2:4)';
 end
 
-Ybar = Ydata(:,:);
-xibar = xidata(:,:);
+Ybar = Ydata(1000:end,:);
+xibar = xidata(1000:end,:);
 % Pibar = (Ybar'*Ybar) \ Ybar' * xibar
 
 idx = 1:18;
 Pibar = pinv(Ybar(:,idx)'*Ybar(:,idx)) * Ybar(:,idx)' * xibar
+% Pibar = Ybar(:,idx) \ xibar;
 
 % Evaluate fitting performance
 rms(Ybar*Pibar - xibar)
 
-rank(Ybar'*Ybar)
-rank(Y'*Y)
+
+
+
+% rank(Ybar'*Ybar)
+% rank(Y'*Y)
 
 
 % Question 5
@@ -339,7 +348,8 @@ idx = [1:7, 8:11, 13:18];
 unkownvars_val = vpasolve(Pibar(idx)==Pi(idx), unkownvars)
 unkownvars_val = cellfun(@double, struct2cell(unkownvars_val))
 
-% unkownvars_val = [0.1     0 0.01 0.01   0 0.01 0.01   0.132 0.132  1 1];
+
+unkownvars_val = [0.1  0 0.01 0.01  0 0.01 0.01  1 1  0.132 0.132  0.05 0.05 0.05 0.05 0.05 0.05]';
 
 dyn_omni_bundle = subs(DYNEQ, unkownvars, unkownvars_val);
 
@@ -354,7 +364,15 @@ q0  = [0 0 0]';  % pi/2-0.1
 dq0 = [0.1 0 0]';
 Cfriction = 0;
 
-sim('omnibundle.slx')
+
+
+try
+    sim('omnibundle.slx')
+catch
+end
+
+
+
 
 % Animation
 
@@ -384,7 +402,7 @@ for i=1:length(simdata)
     lin3.YData = [p2_val(2) p3_val(2)];
     lin3.ZData = [p2_val(3) p3_val(3)];
     drawnow();
-    pause(simdata(i,1)-toc)
+    pause(simdata(i,1)-toc/2)
     if mod(i,10)==0
         fprintf('%f\n',toc)
     end
