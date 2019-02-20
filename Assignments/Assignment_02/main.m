@@ -151,7 +151,11 @@ for i=1:numel(q)
     H{i} = hessian(coriolis_centr(i),dq);
 end
 
-DYNEQ = B*ddq + coriolis_centr + gvec == xi;
+
+f = diag(sym('f',[3 1]));
+fs = diag(sym('fs',[3 1]));
+
+DYNEQ = B*ddq + coriolis_centr + gvec - xi + f*dq + fs*sign(dq);
 
 % gradL = gradient(L,dq);
 % simplify(jacobian(gradL,q)*dq + jacobian(gradL,dq)*ddq - gradient(L,q) - (B*ddq + coriolis_centr + gvec))
@@ -165,14 +169,58 @@ DYNEQ = B*ddq + coriolis_centr + gvec == xi;
 
 % simplify(DYNEQ)
 
-Pi = [I{1}(2,2); diag(I{2}); diag(I{3});
-          L2^2*m3; L1*L2*m3; L1^2*m3; L1*m3; L2*m3; % L2^2*m3; 
-          L1^2*m2;  L1*m2]; % L2^2*m3; L2*m3;
-Pi_aux = sym('aux',[numel(Pi),1]);
-Y_Pi = subs(expand(DYNEQ), Pi, Pi_aux);
+% a = children(children(expand(DYNEQ(1))))
+% subs(a{1}.', [q,dq,ddq], [[pi/6;pi/6;pi/6],[pi/6;pi/6;pi/6],[pi/6;pi/6;pi/6] ]) 
 
-[Y,Tao]=equationsToMatrix(Y_Pi,Pi_aux);
+Pi = [I{1}(2,2); diag(I{2}); diag(I{3});
+          L2^2*m3; L1*L2*m3; L2*m3;
+          L1^2*m2; L1^2*m3; 
+          L1*m3; L1*m2;
+          diag(f);
+          diag(fs)];
+Pi_aux = sym('aux',[numel(Pi),1]);
+DYNEQ_aux = subs(expand(DYNEQ), Pi, Pi_aux);
+
+[Y,Tao]=equationsToMatrix(DYNEQ_aux,Pi_aux);
 Y=vpa(simplify(Y));
+
+if any(simplify( DYNEQ_aux - (Y*Pi_aux-Tao)))
+    error('System identification failed!!')
+end
+
+Y = [Y(:,1:10) Y(:,11) Y(:,13) Y(:,15:end)];
+Pi = [Pi(1:10); Pi(11)+4*Pi(12); Pi(13)+0.5*Pi(14); Pi(15:end)];
+
+if any(simplify( DYNEQ - (Y*Pi-Tao)))
+    error('System identification failed!!')
+end
+
+
+% eqn2 = isolate(expand(DYNEQ(2))==0, L1*m2 )
+% eqn2 = isolate(simplify(DYNEQ(2))==0, L1*(m3+0.5*m2) )
+% solve(DYNEQ, L1*m3+0.5*L1*m2)
+
+% Y(:,13), Y(:,14)
+% Pi(13), Pi(14)
+% Y(:,11), Y(:,12)
+% Pi(11), Pi(12)
+
+% Y(:,1), Y(:,10)
+% Pi(1), Pi(7)
+
+% for i=1:size(Y,2)
+%     for j=i+1:size(Y,2)
+%         fprintf('%f %f', i, j);
+%         simplify(Y(:,i)./Y(:,j))
+%         if simplify(Y(:,i)./Y(:,j)) == [1;1;1]
+%             fprintf('%f %f', i, j);
+%         end
+%     end
+% end
+
+% 
+% terms = children(expand(DYNEQ))
+% terms{1}.'
 
 
 if false
@@ -226,17 +274,30 @@ end
 %% Question 4c
 close all
 
-data = load('workspace_lab2_rev3.mat');
+% data = load('workspace_lab2_rev3.mat');
+% data = load('workspace_lab2_EXTRA.mat');
+
+data = load('workspace_lab2_EXTRA_time.mat');
+data = data.data;
+
 
 figure('Color','white','Position',[359.4000  561.8000  745.6000  134.4000])
-subplot(1,2,1)
-plot(data.q(:,1), data.q(:,2:4))
+subplot(2,2,1)
+plot(data.q(:,1), data.q(:,2:4)), grid on;
 xlabel 'time [s]', ylabel 'Joint angles q [rad]';
 legend({'q_1','q_2','q_3'})
-subplot(1,2,2)
-plot(data.Torque(:,1), data.Torque(:,2:4))
+subplot(2,2,2)
+plot(data.Torque(:,1), data.Torque(:,2:4)), grid on;
 xlabel 'time [s]', ylabel 'Joint torques \xi [Nm]';
 legend({'\xi_1','\xi_2','\xi_3'})
+subplot(2,2,3)
+plot(data.dq(:,1), data.dq(:,2:4)), grid on;
+xlabel 'time [s]', ylabel 'Joint angles velocity  dq [rad/s]';
+legend({'dq_1','dq_2','dq_3'})
+subplot(2,2,4)
+plot(data.qdd(:,1), data.qdd(:,2:4)), grid on;
+xlabel 'time [s]', ylabel 'Joint angles acceleration ddq [rad/s^2]';
+legend({'ddq_1','ddq_2','ddq_3'})
 % fp.savefig('omni')
 
 
@@ -244,7 +305,10 @@ legend({'\xi_1','\xi_2','\xi_3'})
 
 Y_fun = matlabFunction(Y,'Vars',{g q dq ddq});
 
-N = ceil(numel(data.time));
+% N = ceil(numel(data.time));
+N = ceil(length(data.q));
+
+
 n = size(Y,1);
 Ydata = zeros(N*n, size(Y,2));
 xidata = zeros(N*n, 1);
@@ -253,43 +317,49 @@ for i=1:N
     xidata(n*i-n+1:n*i,1) = data.Torque(i,2:4)';
 end
 
-Ybar = Ydata(10000:13000,:);
-xibar = xidata(10000:13000,:);
-Pibar = (Ybar'*Ybar) \ Ybar' * xibar
+Ybar = Ydata(:,:);
+xibar = xidata(:,:);
+% Pibar = (Ybar'*Ybar) \ Ybar' * xibar
+
+idx = 1:18;
+Pibar = pinv(Ybar(:,idx)'*Ybar(:,idx)) * Ybar(:,idx)' * xibar
+
+% Evaluate fitting performance
+rms(Ybar*Pibar - xibar)
 
 rank(Ybar'*Ybar)
 rank(Y'*Y)
- 
-
-Pi
-vpasolve(Pibar==Pi);
-
-m2L1 = vpasolve(Pibar(13:14)==Pi(13:14));
-m2L1.m2
-m2L1.L1
 
 
-%% Question 5
+% Question 5
 
-unkownvars     = [I{1}(2,2) diag(I{2}).' diag(I{3}).' L1 L2 m2 m3];
-unkownvars_val = [0.1     0 0.01 0.01   0 0.01 0.01   0.132 0.132  1 1];
+unkownvars = [I{1}(2,2); diag(I{2}); diag(I{3}); m2; m3; L1; L2; diag(f); diag(fs)];
 
-dyn_omni_bundle = B*ddq + coriolis_centr + gvec - xi;
-dyn_omni_bundle = subs(dyn_omni_bundle, unkownvars, unkownvars_val);
+idx = [1:7, 8:11, 13:18];
+unkownvars_val = vpasolve(Pibar(idx)==Pi(idx), unkownvars)
+unkownvars_val = cellfun(@double, struct2cell(unkownvars_val))
+
+% unkownvars_val = [0.1     0 0.01 0.01   0 0.01 0.01   0.132 0.132  1 1];
+
+dyn_omni_bundle = subs(DYNEQ, unkownvars, unkownvars_val);
 
 [Adyn,bdyn]=equationsToMatrix(dyn_omni_bundle,ddq);
 
 dyn_omni_bundle_fun = matlabFunction( simplify(Adyn\bdyn), 'Vars', {g, q,dq,xi}, 'File', 'dyn_omni_bundle_fun');
 
-q0  = [0 0 0]';
+
+% Simulate
+torquein = data.Torque;
+q0  = [0 0 0]';  % pi/2-0.1
 dq0 = [0.1 0 0]';
+Cfriction = 0;
 
 sim('omnibundle.slx')
 
-%% Animation
+% Animation
 
 % simdata = data.q;
-
+    
 close all;
 
 p1_fun = [0 0 0]';
