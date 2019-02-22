@@ -161,11 +161,14 @@ DYNEQ = B*ddq + coriolis_centr + gvec - xi + f*dq + fs*sign(dq);
 gradL = gradient(L,dq);
 simplify(jacobian(gradL,q)*dq + jacobian(gradL,dq)*ddq - gradient(L,q) - (B*ddq + coriolis_centr + gvec))
 
+gradL = gradient(L,dq);
+simplify(jacobian(gradL,q)*dq + jacobian(gradL,dq)*ddq - gradient(L,q) - (B*ddq + dq.'*H{i}*dq/2 + gvec))
+
 
 % fp.m2latex(gvec)
-% fp.m2latex(H{2}(2,3)/2)
-% fp.m2latex(H{3}(1,1)/2)
-% fp.m2latex(H{3}(1,2)/2)
+% fp.m2latex(H{2}(2,3))
+% fp.m2latex(H{3}(1,1))
+% fp.m2latex(H{3}(1,2))
       
 %% Question 4a
 
