@@ -411,7 +411,7 @@ legend({'q_1','q_2','q_3'})
 % simdata = data.q;
     
 % close all;
-
+45000
 p1_fun = [0 0 0]';
 p2_fun = matlabFunction( subs(p2(1:3),unkownvars, unkownvars_val), 'Vars', {q});
 p3_fun = matlabFunction( subs(pe(1:3),unkownvars, unkownvars_val), 'Vars', {q});
