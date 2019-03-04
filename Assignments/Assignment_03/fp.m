@@ -34,8 +34,6 @@ classdef fp
                 latexcode(6) = '[';
                 latexcode(end) = ']';
             end
-%             latexcode = strrep(latexcode,'(','[');
-%             latexcode = strrep(latexcode,')',']');
             clipboard('copy',latexcode);
         end
         

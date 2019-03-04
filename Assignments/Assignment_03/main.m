@@ -100,21 +100,26 @@ dB = sym(zeros(3,3));
 for i=1:numel(B)
     dB(i) = jacobian(B(i),q)*dq;
 end
-coriolis_centr = dB*dq - 0.5*jacobian(dq.'*B*dq, q).';
+h = dB*dq - 0.5*jacobian(dq.'*B*dq, q).';
 
-for i=1:numel(q)
-    H{i} = hessian(coriolis_centr(i),dq);
-%     simplify(dq.'*H{i}*dq/2 - coriolis_centr(i));
-end
+% for i=1:numel(q)
+%     H{i} = hessian(h(i),dq);
+%     simplify(dq.'*H{i}*dq/2 - h(i))
+% end
 
+C = jacobian(h,dq)/2;
+% simplify(C*dq - h);
+
+N = simplify(dB - 2*C);
+% simplify(N+N.');          % Skew-symmetric
 
 f = diag(sym('f',[3 1]));
 fs = diag(sym('fs',[3 1]));
 
-DYNEQ = B*ddq + coriolis_centr + gvec - xi + f*dq + fs*sign(dq);
+DYNEQ = B*ddq + h + gvec - xi + f*dq + fs*sign(dq);
 
 gradL = gradient(L,dq);
-simplify(jacobian(gradL,q)*dq + jacobian(gradL,dq)*ddq - gradient(L,q) - (B*ddq + coriolis_centr + gvec))
+simplify(jacobian(gradL,q)*dq + jacobian(gradL,dq)*ddq - gradient(L,q) - (B*ddq + h + gvec))
 
  
 
@@ -135,35 +140,223 @@ l1 = 0.07; %m
 l2 = 0.12; %m
 
 %Friction (linear coefficients in the joint angular velocities) 
-fv  = [0.0089, 0.0170, 0.0058]; %Nm*s/rad
-fsv = [0, 0, 0];
+fv  = diag([0.0089, 0.0170, 0.0058]); %Nm*s/rad
+fsv = diag([0, 0, 0]);
 
 unkownvars     = [I{1}(2,2); diag(I{2}); diag(I{3}); m2; m3; L1; L2; diag(f); diag(fs)];
-unkownvars_val = [Iv{1}(2); Iv{2}'; Iv{3}'; mv(2); mv(3); L1v; L2v; fv'; fsv'];
+unkownvars_val = [Iv{1}(2); Iv{2}'; Iv{3}'; mv(2); mv(3); L1v; L2v; diag(fv); diag(fsv)];
 
 dyn_omni_bundle = subs(DYNEQ, unkownvars, unkownvars_val);
 [Adyn,bdyn]=equationsToMatrix(dyn_omni_bundle,ddq);
 dyn_omni_bundle_fun = matlabFunction( simplify(Adyn\bdyn), 'Vars', {g, q,dq,xi}, 'File', 'dyn_omni_bundle_fun');
 
-% ddq = dyn_omni_bundle_fun(9.8, q0, dq0, dq0)
+% test:
+% dyn_omni_bundle_fun(9.8, q0, dq0, zeros(3,1))
 
 
-%% Simulate
-torquein = [0 0 0 0; 1e10 0 0 0];
-q0  = [0 0 0]';  % pi/2-0.1
-dq0 = [1 0 0]';
+
+%% Question 1 - Trajectory planning
+
+
+% First two positions are ti and tf to next point. Next positions are joint angles
+qs = [ 0   0 0 0;
+       1   0 0 0;
+       3   0 pi/6 pi/6;
+       5   pi/4 0 pi/4;
+       7   0 pi/4 0;
+       9   pi/4 pi/4 pi/4];
+
+ddqc = 1;
+
+syms t
+qtcell = {};
+syms qt(t)
+for i=1:size(qs,1)-1
+    for j=2:size(qs,2)
+        qi = qs(i,j);
+        qf = qs(i+1,j);
+        dt = qs(i+1,1)-qs(i,1);
+        if ddqc < 4*abs(qf-qi)/dt^2
+            ddqc_n = 4*abs(qf-qi)/dt^2;
+            fprintf('Max acceleration too low, changing to: %.2f\n',ddqc_n);
+        else
+            ddqc_n = ddqc;
+        end
+        ddqc_n = ddqc_n * sign(qf-qi);
+        tc = dt/2 - 0.5*sqrt( (dt^2 *ddqc_n - 4*(qf-qi))/ddqc_n );
+        if isnan(tc), tc=0; end
+        
+        qt(t) = piecewise( t<0,                  qi,...
+                           (0<=t) & (t<=tc),     qi + 0.5*ddqc_n*t^2, ...
+                           (tc<t) & (t<=dt-tc),  qi + ddqc_n*tc*(t-tc/2),...
+                           (dt-tc<t) & (t<=dt),  qf - 0.5*ddqc_n*(dt-t)^2,...
+                           t>dt,                 qf);
+        qtcell{i,j-1} = @(t) double(qt(t-qs(i,1)));
+    end
+end
+
+
+dt = 0.05;
+
+qv = [];
+tv=0:dt:qs(end,1);
+for i=1:numel(tv)
+    idx =  min(find(tv(i) < qs(:,1)))-1;
+    if isempty(idx)
+        idx = size(qs,1)-1; 
+    end
+    qv(:,i) = cellfun(@(c) c(tv(i)),qtcell(idx,:),'UniformOutput',true)';
+end
+
+ddt = @(x,dt) conv2(x,[1 -1]/dt,'valid');
+
+
+dqv  =  ddt(qv,dt);
+ddqv = ddt(ddt(qv,dt),dt);
+
+
+figure('Color','white','Position',[228   414   839   394]);
+ax1 = subplot(3,1,1);
+plot(tv,qv, 'LineWidth',2); 
+grid on, xlabel 't', ylabel 'q'
+legend({'q1','q2','q3'},'Location','southeast')
+ax2 = subplot(3,1,2);
+plot(tv(1:end-1),dqv , 'LineWidth',2 );
+grid on, xlabel 't', ylabel 'dq'
+ax3 = subplot(3,1,3);
+plot(tv(1:end-2), ddqv , 'LineWidth',2);
+grid on, xlabel 't', ylabel 'ddq'
+linkaxes([ax1,ax2,ax3],'x')
+sgtitle('Configuration space trajectory planning')
+% fp.savefig('trajectory_planning')
+
+
+
+%% Question 2 - DESCENTRALIZED controller design
+
+% Desired close loop performance:
+zeta = 1;
+wn = 10;
+
+
+Bv =  subs(B, unkownvars, unkownvars_val);
+
+Bbar = diag(diag(Bv));
+for i=1:numel(Bbar)
+    aux = children(vpa(Bbar(i)));
+    Bbar(i) = sum(aux( ~has(aux,q) ));
+end
+Bbar = double(Bbar);
+
+Km = inv(fv);
+Tm = fv \ Bbar;
+
+Tv = diag(Tm);
+Kv = 2*zeta*wn./diag(Km);
+Kp = wn^2./diag(Km)./Kv;
+
+
+% fb_k = tf(zeros(numel(q)));
+% for i=1:numel(q)
+%     fb_k(i,i) = tf([Kv(i)*Tv(i) Kv(i)+Kp(i)*Kv(i)*Tv(i) Kp(i)*Kv(i)],[1 0])
+% end
+
+
+%% Simulate DESCENTRALIZED Control
+
+q0  = qs(1,2:4)';
+dq0 = [0 0 0]';
 
 try
-    sim('omnibundle.slx')
+    simdata = sim('omnibundle_descentr_joint.slx','StopTime', num2str(qs(end,1)));
+    simdata = simdata.simdata;
 catch exception
     error(exception.message);
 end
 
+
+figure('Color','white','Position',[228   414   839   394]);
+ax1 = subplot(3,1,1);
+plot(simdata.time(:,1), simdata.signals(1).values(:,:), 'LineWidth',2 )
+grid on, xlabel 't', ylabel 'q measured'
+legend({'q1','q2','q3'},'Location','southeast')
+ax2 = subplot(3,1,2);
+plot(simdata.time(:,1), simdata.signals(2).values(:,:), 'LineWidth',2 )
+grid on, xlabel 't', ylabel 'q reference'
+ax2.YLim = ax1.YLim;
+ax3 = subplot(3,1,3);
+plot(simdata.time(:,1), abs(simdata.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't', ylabel 'error'
+linkaxes([ax1,ax2,ax3],'x')
+sgtitle('Decentralized configuration space control')
+% fp.savefig('dec_control')
+
+
+
+%% Question 4 - CENTRALIZED controller design
+
+% dyn_omni_bundle = subs(DYNEQ, unkownvars, unkownvars_val);
+[Adyn,bdyn]=equationsToMatrix(dyn_omni_bundle,xi);
+inv_dyn_omni_bundle_fun = matlabFunction( simplify(Adyn\bdyn), 'Vars', {g, q,dq,ddq}, 'File', 'inv_dyn_omni_bundle_fun');
+
+
+% test:
+% a = inv_dyn_omni_bundle_fun(9.8, ones(3,1), ones(3,1), 10*ones(3,1))
+% dyn_omni_bundle_fun(9.8, ones(3,1), ones(3,1), a)
+
+
+zeta = 1;
+wn = 10;
+
+K_D = diag(repmat(2*zeta*wn,3,1));
+K_P = diag(repmat(wn^2,3,1));
+
+
+
+%% Simulate CENTRALIZED Control
+
+q0  = qs(1,2:4)';
+dq0 = [0 0 0]';
+
+try
+    simdata = sim('omnibundle_centr_joint.slx','StopTime', num2str(qs(end,1)));
+    simdata = simdata.simdata;
+catch exception
+    error(exception.message);
+end
+
+
+figure('Color','white','Position',[228   414   839   394]);
+ax1 = subplot(3,1,1);
+plot(simdata.time(:,1), simdata.signals(1).values(:,:), 'LineWidth',2 )
+grid on, xlabel 't', ylabel 'q measured'
+legend({'q1','q2','q3'},'Location','southeast')
+ax2 = subplot(3,1,2);
+plot(simdata.time(:,1), simdata.signals(2).values(:,:), 'LineWidth',2 )
+grid on, xlabel 't', ylabel 'q reference'
+ax2.YLim = ax1.YLim;
+ax3 = subplot(3,1,3);
+plot(simdata.time(:,1), abs(simdata.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't', ylabel 'error'
+linkaxes([ax1,ax2,ax3],'x')
+sgtitle('Centralized inverse-dynamics control')
+fp.savefig('centr_control')
+
+
+
+
 %% Animate
 
-timeidx = simdata(:,1)<=10;
+% config
+delay_factor = 1;       % 1 = no delay, 0.5 = half of real speed
+fps = 60;
+
+ta = 0:1/fps:simdata.time(end);
+data_anim = [ta' interp1(simdata.time, simdata.signals(1).values, ta') ];
+
+
 figure('Color','white','Position',[491   446   611   239])
-plot(simdata(timeidx,1), simdata(timeidx,2:4)), grid on;
+plot(data_anim(:,1), data_anim(:,2:4)), grid on;
 xlabel 'time [s]', ylabel 'Joint angles q [rad]';
 legend({'q_1','q_2','q_3'})
 % fp.savefig('sim')
@@ -171,7 +364,7 @@ legend({'q_1','q_2','q_3'})
 
 % Animation
 
-% simdata = data.q;
+% data_anim = data.q;
     
 % close all;
 p1_fun = [0 0 0]';
@@ -186,9 +379,9 @@ ylim([-2*0.132 2*0.132])
 zlim([-2*0.132 2*0.132])
 view(45,15)
 tic
-for i=1:length(simdata)
-    p2_val = p2_fun(simdata(i,2:4)');
-    p3_val = p3_fun(simdata(i,2:4)');
+for i=1:length(data_anim)
+    p2_val = p2_fun(data_anim(i,2:4)');
+    p3_val = p3_fun(data_anim(i,2:4)');
     lin2.XData = [0 p2_val(1)];
     lin2.YData = [0 p2_val(2)];
     lin2.ZData = [0 p2_val(3)];
@@ -196,120 +389,28 @@ for i=1:length(simdata)
     lin3.YData = [p2_val(2) p3_val(2)];
     lin3.ZData = [p2_val(3) p3_val(3)];
     drawnow();
-    pause(simdata(i,1)-toc/2)
+    pause(data_anim(i,1)-toc*delay_factor)
     if mod(i,10)==0
-        fprintf('%f\n',toc)
+        fprintf('%f\n',data_anim(i,1))
     end
 end
 
 
 
-%% Question 1
 
 
-% First two positions are ti and tf to next point. Next positions are joint angles
-qs = [ 0  0 0 0;
-       3  0 pi/6 pi/6;
-       3.5  0 pi/6 pi/6;
-       6  pi/4 0 pi/4;
-       6.5  pi/4 0 pi/4;
-       9  0 pi/4 0;
-       9.5  0 pi/4 0;
-       13  pi/4 pi/4 pi/4
-       16  pi/4 pi/4 pi/4];
-
-% Define trajectory equation: q(t) = a5*t^5 + ... + a1*t + a0
-% a = sym('a',[3,6]);
-% syms t
-% qt  = a(:,6)*t^5 + a(:,5)*t^4 + a(:,4)*t^3 + a(:,3)*t^2 + a(:,2)*t^1 + a(:,1)*t^0;
-% dqt = diff(qt,t,1);
-% ddqt = diff(qt,t,2);
-% params = solve( [  subs(qt,  t,trg(i,  1)) == trg(i,3:end)';...
-%                    subs(qt,  t,trg(i+1,1))  == trg(i+1,3:end)';...
-%                    subs(dqt, t,trg(i,  1))  == zeros(3,1);...
-%                    subs(dqt, t,trg(i+1,1))  == zeros(3,1);...
-%                    subs(ddqt,t,trg(i,  1))  == zeros(3,1);...
-%                    subs(ddqt,t,trg(i+1,1))  == zeros(3,1)],a(:));
-% params = cellfun(@double, struct2cell(params));
-
-ddqc = 5;
-
-syms t
-qtcell = {};
-for i=1:size(qs,1)-1
-    for j=2:size(qs,2)
-        qi = qs(i,j);
-        qf = qs(i+1,j);
-        dt = qs(i+1,1)-qs(i,1);
-        tc = dt/2 - 0.5*sqrt( (dt^2 *ddqc - 4*(qf-qi))/ddqc );
-               
-        if ddqc < 4*abs(qf-qi)/dt^2
-            ddqc_n = 4*abs(qf-qi)/dt^2;
-            printf('Max acceleration too low, changing to: %.2f',ddqc);
-        else
-            ddqc_n = ddqc;
-        end
-        
-        qt(t) = piecewise( t<=0,        0,...
-                           0<t<=tc,     qi + 0.5*ddqc_n*t^2, ...
-                           tc<t<=dt-tc, qi + ddqc_n*tc*(t-tc/2),...
-                           dt-tc<t<=dt, qf - 0.5*ddqc_n*(dt-t)^2,...
-                           dt<t,        0);
-        qtcell{i,j-1} = @(t) double(qt(t-qs(i,1)));
-    end
-end
 
 
-dt = 0.01;
-
-qv = [];
-t=dt:dt:5;
-for i=1:numel(t)
-    qv(:,i) = sum(cellfun(@(c) c(t(i)),qtcell,'UniformOutput',true))';
-end
-
-ddt = @(x,dt) conv2(x,[1 -1]/dt,'valid');
-
-(qv(:,end) - qv(:,end-1))/dt
-
-figure('Color','white');
-hold on, grid on;
-subplot(3,1,1)
-plot(t,qv, 'LineWidth',2)
-subplot(3,1,2)
-plot(t(1:end-1), ddt(qv,dt) , 'LineWidth',2 )
-subplot(3,1,3)
-plot(t(1:end-2), ddt(ddt(qv,dt),dt) , 'LineWidth',2)
 
 
-% A_0_3_fun_aux = matlabFunction(A_0_3,'Vars',{q,L1,L2});
-% A_0_3_fun = @(q) A_0_3_fun_aux(q,0.132,0.132);
-% 
-% q_val = [0 0 0]';
-% A_0_3_fun(q_val)*[0 0 0 1]';
-% 
-% q_val = [0.67 -0.15 2.7]';
-% A_0_3_fun(q_val)*[0 0 0 1]';
-% 
-% q_val = [-0.73 0.25 1.5]';
-% A_0_3_fun(q_val)*[0 0 0 1]';
 
 
-%% Question 2
 
-% Match the position of the end-effector (T_0_3_fun(q)*[0 0 0 1]') in the
-% base coordinates to a specific position p3
 
-% p3_val = [0.06 0.04 0.02 1]';
-% p3_resp = vpasolve( A_0_3_fun(q)*[0 0 0 1]' == p3_val );
-% 
-% fprintf("q1: %.3f\nq2: %.3f\nq3: %.3f\n\n", p3_resp.q1, p3_resp.q2, p3_resp.q3 )
-% vpa(A_0_3_fun([p3_resp.q1, p3_resp.q2, p3_resp.q3]'))*[0 0 0 1]';
-% 
-% p3_val = [0.0847 0.0123 -0.005 1]';
-% p3_resp = vpasolve( A_0_3_fun(q)*[0 0 0 1]' == p3_val );
-% 
-% fprintf("q1: %.3f\nq2: %.3f\nq3: %.3f\n\n", p3_resp.q1, p3_resp.q2, p3_resp.q3 )
-% vpa(A_0_3_fun([p3_resp.q1, p3_resp.q2, p3_resp.q3]'))*[0 0 0 1]';
+
+
+
+
+
 
 
