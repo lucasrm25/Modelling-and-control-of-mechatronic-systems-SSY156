@@ -167,52 +167,9 @@ qs = [ 0   0 0 0;
        9   pi/4 pi/4 pi/4];
 
 ddqc = 1;
+dts = 0.05;
 
-syms t
-qtcell = {};
-syms qt(t)
-for i=1:size(qs,1)-1
-    for j=2:size(qs,2)
-        qi = qs(i,j);
-        qf = qs(i+1,j);
-        dt = qs(i+1,1)-qs(i,1);
-        if ddqc < 4*abs(qf-qi)/dt^2
-            ddqc_n = 4*abs(qf-qi)/dt^2;
-            fprintf('Max acceleration too low, changing to: %.2f\n',ddqc_n);
-        else
-            ddqc_n = ddqc;
-        end
-        ddqc_n = ddqc_n * sign(qf-qi);
-        tc = dt/2 - 0.5*sqrt( (dt^2 *ddqc_n - 4*(qf-qi))/ddqc_n );
-        if isnan(tc), tc=0; end
-        
-        qt(t) = piecewise( t<0,                  qi,...
-                           (0<=t) & (t<=tc),     qi + 0.5*ddqc_n*t^2, ...
-                           (tc<t) & (t<=dt-tc),  qi + ddqc_n*tc*(t-tc/2),...
-                           (dt-tc<t) & (t<=dt),  qf - 0.5*ddqc_n*(dt-t)^2,...
-                           t>dt,                 qf);
-        qtcell{i,j-1} = @(t) double(qt(t-qs(i,1)));
-    end
-end
-
-
-dt = 0.05;
-
-qv = [];
-tv=0:dt:qs(end,1);
-for i=1:numel(tv)
-    idx =  min(find(tv(i) < qs(:,1)))-1;
-    if isempty(idx)
-        idx = size(qs,1)-1; 
-    end
-    qv(:,i) = cellfun(@(c) c(tv(i)),qtcell(idx,:),'UniformOutput',true)';
-end
-
-ddt = @(x,dt) conv2(x,[1 -1]/dt,'valid');
-
-
-dqv  =  ddt(qv,dt);
-ddqv = ddt(ddt(qv,dt),dt);
+[tv,qv,dqv,ddqv] = traj_planning(qs, ddqc,dts);
 
 
 figure('Color','white','Position',[228   414   839   394]);
@@ -317,6 +274,7 @@ K_P = diag(repmat(wn^2,3,1));
 
 q0  = qs(1,2:4)';
 dq0 = [0 0 0]';
+tau_d = [0;0;0];
 
 try
     simdata = sim('omnibundle_centr_joint.slx','StopTime', num2str(qs(end,1)));
@@ -340,8 +298,63 @@ plot(simdata.time(:,1), abs(simdata.signals(3).values(:,:)), 'LineWidth',2 )
 grid on, xlabel 't', ylabel 'error'
 linkaxes([ax1,ax2,ax3],'x')
 sgtitle('Centralized inverse-dynamics control')
-fp.savefig('centr_control')
+% fp.savefig('centr_control')
 
+
+
+%% Question 5 - Disturbance effect
+
+syms d
+tau_d = [0;d;0];
+simplify(B \ tau_d)
+
+q0  = qs(1,2:4)';
+dq0 = [0 0 0]';
+tau_d = [0;0.1;0];
+
+try
+    simdata = sim('omnibundle_centr_joint.slx','StopTime', num2str(qs(end,1)));
+    simdata = simdata.simdata;
+catch exception
+    error(exception.message);
+end
+
+
+figure('Color','white','Position',[507   528   520   143]);
+hold on;
+plot(simdata.time(:,1), simdata.signals(1).values(:,1), 'LineWidth',2 )
+plot(simdata.time(:,1), simdata.signals(2).values(:,1), 'LineWidth',2 )
+plot(simdata.time(:,1), abs(simdata.signals(3).values(:,1)), 'LineWidth',2 )
+grid on, xlabel 't', ylabel 'q'
+legend({'q measured','q reference','error'},'Location','northwest')
+fp.savefig('centr_control_dist')
+
+
+%% Operational Space Trajectory Planning
+
+
+pes = [0   0.098 -0.078 -0.1;
+       5   0.2 0 0;
+       25   0.2 0 0];
+
+ddpec = 0.5;
+dts = 0.1;
+[tv,pev,dpev,ddpev] = traj_planning(pes, ddpec, dts);
+
+figure('Color','white','Position',[228   414   839   394]);
+ax1 = subplot(3,1,1);
+plot(tv,pev, 'LineWidth',2); 
+grid on, xlabel 't', ylabel 'x_e'
+legend({'x','y','z'},'Location','southeast')
+ax2 = subplot(3,1,2);
+plot(tv(1:end-1),dpev , 'LineWidth',2 );
+grid on, xlabel 't', ylabel 'dx_e'
+ax3 = subplot(3,1,3);
+plot(tv(1:end-2), ddpev , 'LineWidth',2);
+grid on, xlabel 't', ylabel 'ddx_e'
+linkaxes([ax1,ax2,ax3],'x')
+sgtitle('Operational space trajectory planning')
+fp.savefig('trajectory_planning_op_space')
 
 
 
@@ -396,9 +409,52 @@ for i=1:length(data_anim)
 end
 
 
+%% Help functions
 
 
+function [tv,qv,dqv,ddqv] = traj_planning(qs, ddqc, dts)
+    syms t
+    qtcell = {};
+    syms qt(t)
+    for i=1:size(qs,1)-1
+        for j=2:size(qs,2)
+            qi = qs(i,j);
+            qf = qs(i+1,j);
+            dt = qs(i+1,1)-qs(i,1);
+            if ddqc < 4*abs(qf-qi)/dt^2
+                ddqc_n = 4*abs(qf-qi)/dt^2;
+                fprintf('Max acceleration too low, changing to: %.2f\n',ddqc_n);
+            else
+                ddqc_n = ddqc;
+            end
+            ddqc_n = ddqc_n * sign(qf-qi);
+            tc = dt/2 - 0.5*sqrt( (dt^2 *ddqc_n - 4*(qf-qi))/ddqc_n );
+            if isnan(tc), tc=0; end
 
+            qt(t) = piecewise( t<0,                  qi,...
+                               (0<=t) & (t<=tc),     qi + 0.5*ddqc_n*t^2, ...
+                               (tc<t) & (t<=dt-tc),  qi + ddqc_n*tc*(t-tc/2),...
+                               (dt-tc<t) & (t<=dt),  qf - 0.5*ddqc_n*(dt-t)^2,...
+                               t>dt,                 qf);
+            qtcell{i,j-1} = @(t) double(qt(t-qs(i,1)));
+        end
+    end
+
+    qv = [];
+    tv=0:dts:qs(end,1);
+    for i=1:numel(tv)
+        idx =  min(find(tv(i) < qs(:,1)))-1;
+        if isempty(idx)
+            idx = size(qs,1)-1; 
+        end
+        qv(:,i) = cellfun(@(c) c(tv(i)),qtcell(idx,:),'UniformOutput',true)';
+    end
+
+    ddt = @(x,dt) conv2(x,[1 -1]/dt,'valid');
+
+    dqv  =  ddt(qv,dts);
+    ddqv = ddt(ddt(qv,dts),dts);
+end
 
 
 

@@ -15,6 +15,10 @@ classdef rb
     
     methods (Static)
         
+%         function trajectoryPlanning(traj_table)
+%         end
+        
+        
         % Transformation matrix that converts analytical Jacobian (ZYZ
         % Euler) to geometrical one
         % Input:    ZYZ Euler angles
