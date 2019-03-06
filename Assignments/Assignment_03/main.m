@@ -159,15 +159,45 @@ dyn_omni_bundle_fun = matlabFunction( simplify(Adyn\bdyn), 'Vars', {g, q,dq,xi},
 
 
 % First two positions are ti and tf to next point. Next positions are joint angles
-qs = [ 0   0 0 0;
-       1   0 0 0;
-       3   0 pi/6 pi/6;
-       5   pi/4 0 pi/4;
-       7   0 pi/4 0;
-       9   pi/4 pi/4 pi/4];
-
+% qs = [ 0   0 0 0;
+%        1   0 0 0;
+%        3   0 pi/6 pi/6;
+%        5   pi/4 0 pi/4;
+%        7   0 pi/4 0;
+%        9   pi/4 pi/4 pi/4];
+   
+% qs = [ 0  -0.6295 -0.2558 3.161      % 1   
+%        2  -0.01275 -0.2342 2.993     % 5
+%        3  -0.01275 -0.2342 2.993     % 5
+%        5   0.361 -0.02856 2.364       % 9
+%        6   0.361 -0.02856 2.364       % 9
+%        8   0.6127 -0.2583 3.168       % 3
+%        9   0.6127 -0.2583 3.168       % 3
+%        11 -0.3619 -0.02611 2.363     % 7
+%        12 -0.3619 -0.02611 2.363     % 7
+%        14 -0.6295 -0.2558 3.161      % 1
+%        15 -0.6295 -0.2558 3.161      % 1
+%        ];
+   
+qs = [ 0  -0.6287 -0.2562 3.191      % 1
+       2  -0.6287 -0.2562 3.191      % 1 
+       4  -0.01028 -0.2411 3.023     % 5
+       5  -0.01028 -0.2411 3.023     % 5
+       7   0.3586 -0.03917 2.402     % 9
+       8   0.3586 -0.03917 2.402     % 9
+       10   0.602 -0.2652 3.197      % 3
+       11   0.602 -0.2652 3.197      % 3
+       13  -0.01028 -0.2411 3.023    % 5
+       14  -0.01028 -0.2411 3.023    % 5
+       16 -0.3614 -0.03509 2.393     % 7
+       17 -0.3614 -0.03509 2.393     % 7
+       19 -0.6287 -0.2562 3.191      % 1
+       20 -0.6287 -0.2562 3.191      % 1
+       ];
+   
+   
 ddqc = 1;
-dts = 0.05;
+dts = 0.05; 
 
 [tv,qv,dqv,ddqv] = traj_planning(qs, ddqc,dts);
 
@@ -193,7 +223,7 @@ sgtitle('Configuration space trajectory planning')
 
 % Desired close loop performance:
 zeta = 1;
-wn = 10;
+wn = 20;
 
 
 Bv =  subs(B, unkownvars, unkownvars_val);
@@ -205,12 +235,12 @@ for i=1:numel(Bbar)
 end
 Bbar = double(Bbar);
 
-Km = inv(fv);
-Tm = fv \ Bbar;
+Km = diag(inv(fv));
+Tm = diag(fv \ Bbar);
 
-Tv = diag(Tm);
-Kv = 2*zeta*wn./diag(Km);
-Kp = wn^2./diag(Km)./Kv;
+Tv = Tm;
+Kv = 2*zeta*wn./Km;
+Kp = wn^2./Km./Kv;
 
 
 % fb_k = tf(zeros(numel(q)));
@@ -263,7 +293,7 @@ inv_dyn_omni_bundle_fun = matlabFunction( simplify(Adyn\bdyn), 'Vars', {g, q,dq,
 
 
 zeta = 1;
-wn = 10;
+wn = 20;
 
 K_D = diag(repmat(2*zeta*wn,3,1));
 K_P = diag(repmat(wn^2,3,1));
@@ -361,17 +391,17 @@ fp.savefig('trajectory_planning_op_space')
 %% Animate
 
 % config
-delay_factor = 1;       % 1 = no delay, 0.5 = half of real speed
+delay_factor = 2;       % 1 = no delay, 0.5 = half of real speed
 fps = 60;
 
 ta = 0:1/fps:simdata.time(end);
 data_anim = [ta' interp1(simdata.time, simdata.signals(1).values, ta') ];
 
 
-figure('Color','white','Position',[491   446   611   239])
-plot(data_anim(:,1), data_anim(:,2:4)), grid on;
-xlabel 'time [s]', ylabel 'Joint angles q [rad]';
-legend({'q_1','q_2','q_3'})
+% figure('Color','white','Position',[491   446   611   239])
+% plot(data_anim(:,1), data_anim(:,2:4)), grid on;
+% xlabel 'time [s]', ylabel 'Joint angles q [rad]';
+% legend({'q_1','q_2','q_3'})
 % fp.savefig('sim')
 
 
@@ -384,15 +414,19 @@ p1_fun = [0 0 0]';
 p2_fun = matlabFunction( subs(p2(1:3),unkownvars, unkownvars_val), 'Vars', {q});
 p3_fun = matlabFunction( subs(pe(1:3),unkownvars, unkownvars_val), 'Vars', {q});
 
-figure('Color','white'), hold on, grid on, axis square;
+figure('Color','white'), hold on, grid on, axis equal;
+
+endeff_pos = p3_fun(qs(:,2:4)');
+scatter3( endeff_pos(1,:), endeff_pos(2,:), endeff_pos(3,:), 'red' ,'filled');
+
 lin2 = plot3( [0 [1 0 0]*p2_fun(q0)] ,[0 [0 1 0]*p2_fun(q0)], [0 [0 0 1]*p2_fun(q0)] ,'LineWidth',3);
 lin3 = plot3( [0 [1 0 0]*p3_fun(q0)] ,[0 [0 1 0]*p3_fun(q0)], [0 [0 0 1]*p3_fun(q0)] ,'LineWidth',3);
-xlim([-2*0.132 2*0.132])
-ylim([-2*0.132 2*0.132])
-zlim([-2*0.132 2*0.132])
+xlim([0 2*0.132])
+ylim([-0.15 0.15])
+zlim([-0.15 0.1])
 view(45,15)
 tic
-for i=1:length(data_anim)
+for i=2:length(data_anim)
     p2_val = p2_fun(data_anim(i,2:4)');
     p3_val = p3_fun(data_anim(i,2:4)');
     lin2.XData = [0 p2_val(1)];
@@ -401,6 +435,12 @@ for i=1:length(data_anim)
     lin3.XData = [p2_val(1) p3_val(1)];
     lin3.YData = [p2_val(2) p3_val(2)];
     lin3.ZData = [p2_val(3) p3_val(3)];
+    
+    plot3( [[1 0 0]*p3_fun(data_anim(i-1,2:4)') [1 0 0]*p3_fun(data_anim(i,2:4)')], ...
+           [[0 1 0]*p3_fun(data_anim(i-1,2:4)') [0 1 0]*p3_fun(data_anim(i,2:4)')], ...
+           [[0 0 1]*p3_fun(data_anim(i-1,2:4)') [0 0 1]*p3_fun(data_anim(i,2:4)')],...
+           'LineWidth',3, 'Color', 'black');
+    
     drawnow();
     pause(data_anim(i,1)-toc*delay_factor)
     if mod(i,10)==0
