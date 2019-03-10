@@ -1,5 +1,6 @@
 clear all; close all; clc;
 
+
 calc_dynamics
 
 % generate_trajectories
@@ -11,6 +12,7 @@ load('trajectories_mat.mat')
 % Desired close loop performance:
 zeta = 1;
 wn = 20;
+% wn = 8; % lab
 
 Bv =  subs(B, unkownvars, unkownvars_val);
 
@@ -29,8 +31,13 @@ Kv = 2*zeta*wn./Km;
 Kp = wn^2./Km./Kv;
 
 
+tau_d = [0;0;0];
 q0  = qs(1,2:4)';
 dq0 = [0 0 0]';
+
+PID_P = Kv + Kp.*Kv.*Tv;
+PID_I = Kp.*Kv;
+PID_D = Kv.*Tv;
 
 try
     simdata = sim('omnibundle_control.slx','StopTime', num2str(qs(end,1)));
@@ -39,26 +46,46 @@ catch exception
     error(exception.message);
 end
 
-
 figure('Color','white','Position',[228   414   839   394]);
-ax1 = subplot(3,1,1);
-plot(simdata.time(:,1), simdata.signals(1).values(:,:), 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'q measured'
-legend({'q1','q2','q3'},'Location','southeast')
-ax2 = subplot(3,1,2);
-plot(simdata.time(:,1), simdata.signals(2).values(:,:), 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'q reference'
-ax2.YLim = ax1.YLim;
-ax3 = subplot(3,1,3);
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'joint angle q [rad]'
+for i=1:3
+    plot(simdata.time(:,1), simdata.signals(2).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', ['q' num2str(i) ' desired'] )
+    plot(simdata.time(:,1), simdata.signals(1).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', ['q' num2str(i) ' measured'] )    
+end
+ylim([-1 4])
+legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
 plot(simdata.time(:,1), abs(simdata.signals(3).values(:,:)), 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'error'
+grid on, xlabel 't [s]', ylabel 'tracking error [rad]'
+legend({'error q1','error q2','error q3'},'Location','northeastoutside')
+sgtitle('Decentralized joint space control')
 linkaxes([ax1,ax2,ax3],'x')
-sgtitle('Decentralized configuration space control')
 % fp.savefig('dec_control')
 
 
-close all;
-animate
+% close all;
+% animate
+
+load('Lab_measurements/JS_decentralized_control.mat')
+
+figure('Color','white','Position',[228   414   839   394]);
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'joint angle q [rad]'
+for i=1:3
+    plot(labdata.time(:,1), labdata.signals(2).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', ['q' num2str(i) ' desired'] )
+    plot(labdata.time(:,1), labdata.signals(1).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', ['q' num2str(i) ' measured'] )    
+end
+ylim([-1 4])
+legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
+plot(labdata.time(:,1), abs(labdata.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't [s]', ylabel 'tracking error [rad]'
+ylim([0 0.15])
+legend({'error q1','error q2','error q3'},'Location','northeastoutside')
+sgtitle('Decentralized joint space control - Laboratory')
+linkaxes([ax1,ax2,ax3],'x')
+% fp.savefig('dec_control_lab')
 
 
 %% Question 4 - CENTRALIZED controller design
@@ -78,23 +105,47 @@ end
 
 
 figure('Color','white','Position',[228   414   839   394]);
-ax1 = subplot(3,1,1);
-plot(simdata.time(:,1), simdata.signals(1).values, 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'q measured'
-legend({'q1','q2','q3'},'Location','southeast')
-ax2 = subplot(3,1,2);
-plot(simdata.time(:,1), simdata.signals(2).values, 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'q reference'
-ax2.YLim = ax1.YLim;
-ax3 = subplot(3,1,3);
-plot(simdata.time(:,1), abs(simdata.signals(3).values), 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'error'
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'joint angle q [rad]'
+for i=1:3
+    plot(simdata.time(:,1), simdata.signals(2).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', ['q' num2str(i) ' desired'] )
+    plot(simdata.time(:,1), simdata.signals(1).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', ['q' num2str(i) ' measured'] )    
+end
+ylim([-1 4])
+legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
+plot(simdata.time(:,1), abs(simdata.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't [s]', ylabel 'tracking error [rad]'
+legend({'error q1','error q2','error q3'},'Location','northeastoutside')
+sgtitle('Centralized joint-space control')
 linkaxes([ax1,ax2,ax3],'x')
-sgtitle('Centralized inverse-dynamics control')
 % fp.savefig('centr_control')
 
-close all;
-animate
+% close all;
+% animate
+
+
+
+load('Lab_measurements/JS_centralized_control.mat')
+
+figure('Color','white','Position',[228   414   839   394]);
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'joint angle q [rad]'
+for i=1:3
+    plot(labdata.time(:,1), labdata.signals(2).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', ['q' num2str(i) ' desired'] )
+    plot(labdata.time(:,1), labdata.signals(1).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', ['q' num2str(i) ' measured'] )    
+end
+ylim([-1 4])
+legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
+plot(labdata.time(:,1), abs(labdata.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't [s]', ylabel 'tracking error [rad]'
+ylim([0 0.10])
+legend({'error q1','error q2','error q3'},'Location','northeastoutside')
+sgtitle('Centralized joint space control - Laboratory')
+linkaxes([ax1,ax2,ax3],'x')
+% fp.savefig('centr_control_lab')
+
 
 
 %% Question 5 - Disturbance effect
@@ -115,15 +166,23 @@ catch exception
 end
 
 
-figure('Color','white','Position',[507   528   520   143]);
-hold on;
-plot(simdata.time(:,1), simdata.signals(1).values(:,1), 'LineWidth',2 )
-plot(simdata.time(:,1), simdata.signals(2).values(:,1), 'LineWidth',2 )
-plot(simdata.time(:,1), abs(simdata.signals(3).values(:,1)), 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'q'
-legend({'q measured','q reference','error'},'Location','northwest')
-fp.savefig('centr_control_dist')
-
+figure('Color','white','Position',[228   414   839   394]);
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'joint angle q [rad]'
+for i=1:3
+    plot(simdata.time(:,1), simdata.signals(2).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', ['q' num2str(i) ' desired'] )
+    plot(simdata.time(:,1), simdata.signals(1).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', ['q' num2str(i) ' measured'] )    
+end
+ylim([-1 4])
+legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
+% hold on, grid on, xlabel 't', ylabel 'q measured'
+plot(simdata.time(:,1), abs(simdata.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't [s]', ylabel 'tracking error [rad]'
+legend({'error q1','error q2','error q3'},'Location','northeastoutside')
+sgtitle('Centralized joint-space control with load disturbance')
+linkaxes([ax1,ax2,ax3],'x')
+% fp.savefig('centr_control_dist')
 
 
 
@@ -145,27 +204,209 @@ catch exception
 end
 
 
-figure('Color','white','Position',[228   414   839   394]);
-ax1 = subplot(3,1,1);
-plot(simdata_xe.time(:,1), simdata_xe.signals(2).values(:,:), 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'x_e measured'
-legend({'x_e','y_e','z_e'},'Location','southeast')
-ax2 = subplot(3,1,2);
-plot(simdata_xe.time(:,1), simdata_xe.signals(1).values(:,:), 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'x_e reference'
-ax2.YLim = ax1.YLim;
-ax3 = subplot(3,1,3);
+figure('Color','white','Position',[96    54   479   346]); % [228   414   839   394]
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'end-effector position [m]'
+for i=1:3
+    plot(simdata_xe.time(:,1), simdata_xe.signals(1).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', [char('x'+i-1) ' desired'] )
+    plot(simdata_xe.time(:,1), simdata_xe.signals(2).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', [char('x'+i-1) ' measured'] )    
+end
+ylim([-0.1 0.25])
+% legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
 plot(simdata_xe.time(:,1), abs(simdata_xe.signals(3).values(:,:)), 'LineWidth',2 )
-grid on, xlabel 't', ylabel 'error'
-linkaxes([ax1,ax2,ax3],'x')
+grid on, xlabel 't [s]', ylabel 'tracking error [m]'
+% legend({'error x','error y','error z'},'Location','northeastoutside')
 sgtitle('Centralized inverse-dynamics operational-space control')
-% fp.savefig('centr_control_opsp')
+linkaxes([ax1,ax2,ax3],'x')
+fp.savefig('centr_control_opsp')
 
 
-qs = [0 0 0 0];
-animate
+% qs = [0 0 0 0];
+% animate
 
 
+load('Lab_measurements/OS_centralized_control_NF.mat')
+
+figure('Color','white','Position',[604    45   593   346]); %[228   414   839   394]
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'end-effector position [m]'
+for i=1:3
+    plot(labdata_xe.time(:,1), labdata_xe.signals(2).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', [char('x'+i-1) ' desired'] )
+    plot(labdata_xe.time(:,1), labdata_xe.signals(1).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', [char('x'+i-1) ' measured'] )    
+end
+ylim([-0.1 0.25])
+legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
+plot(labdata_xe.time(:,1), abs(labdata_xe.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't [s]', ylabel 'tracking error [m]'
+ylim([0 0.02])
+legend({'error x','error y','error z'},'Location','northeastoutside')
+sgtitle('Centralized inverse-dynamics operational-space control')
+linkaxes([ax1,ax2,ax3],'x')
+fp.savefig('centr_control_opsp_lab')
+
+
+
+
+
+% % % % uiopen('Lab_experiments_data/OP_NF_Q2.fig',1)
+% % % % dataObjs = findobj(gcf,'-property','DisplayName','Type','Line','-or','Type','Stair')
+% % % % 
+% % % % objq = findobj(dataObjs,'DisplayName','xe:1');
+% % % % labdata_xe.signals(1).values(:,1) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','xe:2');
+% % % % labdata_xe.signals(1).values(:,2) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','xe:3');
+% % % % labdata_xe.signals(1).values(:,3) = objq.YData;
+% % % % 
+% % % % labdata_xe.time(:,1) = objq.XData;
+% % % % 
+% % % % objq = findobj(dataObjs,'DisplayName','xe_d:1');
+% % % % labdata_xe.signals(2).values(:,1) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','xe_d:2');
+% % % % labdata_xe.signals(2).values(:,2) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','xe_d:3');
+% % % % labdata_xe.signals(2).values(:,3) = objq.YData;
+% % % % 
+% % % % objq = findobj(dataObjs,'DisplayName','e:1');
+% % % % labdata_xe.signals(3).values(:,1) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','e:2');
+% % % % labdata_xe.signals(3).values(:,2) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','e:3');
+% % % % labdata_xe.signals(3).values(:,3) = objq.YData;
+% % % % 
+% % % % save('Lab_measurements/OS_centralized_control_NF','labdata_xe');
+
+
+
+
+
+%% Question 9
+
+syms hx
+
+imp_force = simplify( [1 0 0] * J_geom(1:3,1:3) * inv(B) * J_geom(1:3,1:3).' * [hx 0 0].');
+
+vpa(simplify(subs(imp_force, unkownvars, unkownvars_val)))
+
+
+
+%% Question 10 -Operational Space Impedance Control
+
+q0  = vpasolve(dir_kin_omni_bundle_fun(q)  - pes(1,2:4)');
+q0 = double([q0.q1; q0.q2; q0.q3]);
+dq0 = [0 0 0]';
+
+tau_d = [0;0;0];
+
+
+try
+    aux = sim('omnibundle_control.slx','StopTime', num2str(pes(end,1)));
+    simdata = aux.simdata;
+    simdata_xe = aux.simdata_xe;
+catch exception
+    error(exception.message);
+end
+
+
+figure('Color','white','Position',[228   414   839   394]);
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'end-effector position [m]'
+for i=1:3
+    plot(simdata_xe.time(:,1), simdata_xe.signals(1).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', [char('x'+i-1) ' desired'] )
+    plot(simdata_xe.time(:,1), simdata_xe.signals(2).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', [char('x'+i-1) ' measured'] )    
+end
+ylim([-0.1 0.25])
+legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
+plot(simdata_xe.time(:,1), abs(simdata_xe.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't [s]', ylabel 'tracking error [m]'
+legend({'error x','error y','error z'},'Location','northeastoutside')
+sgtitle('Impedance operational-space control')
+linkaxes([ax1,ax2,ax3],'x')
+% fp.savefig('impedance_cotntrol_opsp_OD')
+
+
+% qs = [0 0 0 0];
+% animate
+
+
+
+%% Question 11
+
+
+load('Lab_measurements/OS_impedance_UD.mat')
+
+figure('Color','white','Position',[96    54   479   346]);
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'end-effector position [m]'
+for i=1:3
+    plot(labdata_xe.time(:,1), labdata_xe.signals(2).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', [char('x'+i-1) ' desired'] )
+    plot(labdata_xe.time(:,1), labdata_xe.signals(1).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', [char('x'+i-1) ' measured'] )    
+end
+ylim([-0.1 0.25])
+% legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
+plot(labdata_xe.time(:,1), abs(labdata_xe.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't [s]', ylabel 'tracking error [m]'
+ylim([0 0.05])
+% legend({'error x','error y','error z'},'Location','northeastoutside')
+sgtitle('Impedance operational-space control')
+linkaxes([ax1,ax2,ax3],'x')
+% fp.savefig('impedance_cotntrol_opsp_UD_lab')
+
+
+load('Lab_measurements/OS_impedance_OD.mat')
+
+figure('Color','white','Position',[604    45   593   346]);
+subplot(2,1,1);
+hold on, grid on, xlabel 't [s]', ylabel 'end-effector position [m]'
+for i=1:3
+    plot(labdata_xe.time(:,1), labdata_xe.signals(2).values(:,i), '-', 'LineWidth',3,'Color', fp.getColor(i,0.5),  'DisplayName', [char('x'+i-1) ' desired'] )
+    plot(labdata_xe.time(:,1), labdata_xe.signals(1).values(:,i), '--', 'LineWidth',3,'Color', fp.getColor(i,1), 'DisplayName', [char('x'+i-1) ' measured'] )    
+end
+ylim([-0.1 0.25])
+legend('Location','northeastoutside')
+ax1 = subplot(2,1,2);
+plot(labdata_xe.time(:,1), abs(labdata_xe.signals(3).values(:,:)), 'LineWidth',2 )
+grid on, xlabel 't [s]', ylabel 'tracking error [m]'
+ylim([0 0.05])
+legend({'error x','error y','error z'},'Location','northeastoutside')
+sgtitle('Impedance operational-space control')
+linkaxes([ax1,ax2,ax3],'x')
+% fp.savefig('impedance_cotntrol_opsp_OD_lab')
+
+
+%%
+
+% % % % uiopen('Lab_experiments_data/OP_F_T2.fig',1)
+% % % % dataObjs = findobj(gcf,'-property','DisplayName','Type','Line','-or','Type','Stair')
+% % % % 
+% % % % objq = findobj(dataObjs,'DisplayName','xe:1');
+% % % % labdata_xe.signals(1).values(:,1) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','xe:2');
+% % % % labdata_xe.signals(1).values(:,2) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','xe:3');
+% % % % labdata_xe.signals(1).values(:,3) = objq.YData;
+% % % % 
+% % % % labdata_xe.time(:,1) = objq.XData;
+% % % % 
+% % % % objq = findobj(dataObjs,'DisplayName','xe_d:1');
+% % % % labdata_xe.signals(2).values(:,1) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','xe_d:2');
+% % % % labdata_xe.signals(2).values(:,2) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','xe_d:3');
+% % % % labdata_xe.signals(2).values(:,3) = objq.YData;
+% % % % 
+% % % % objq = findobj(dataObjs,'DisplayName','e:1');
+% % % % labdata_xe.signals(3).values(:,1) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','e:2');
+% % % % labdata_xe.signals(3).values(:,2) = objq.YData;
+% % % % objq = findobj(dataObjs,'DisplayName','e:3');
+% % % % labdata_xe.signals(3).values(:,3) = objq.YData;
+% % % % 
+% % % % save('Lab_measurements/OS_impedance_UD','labdata_xe');
 
 
 

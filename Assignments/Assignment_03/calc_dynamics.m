@@ -117,7 +117,7 @@ fs = diag(sym('fs',[3 1]));
 DYNEQ = B*ddq + h + gvec - xi + f*dq + fs*sign(dq);
 
 gradL = gradient(L,dq);
-simplify(jacobian(gradL,q)*dq + jacobian(gradL,dq)*ddq - gradient(L,q) - (B*ddq + h + gvec))
+simplify(jacobian(gradL,q)*dq + jacobian(gradL,dq)*ddq - gradient(L,q) - (B*ddq + h + gvec));
 
  
 

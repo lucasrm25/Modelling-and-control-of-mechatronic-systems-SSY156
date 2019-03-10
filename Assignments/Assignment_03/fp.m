@@ -37,13 +37,22 @@ classdef fp
             clipboard('copy',latexcode);
         end
         
+        function str = figpos()
+            a = gcf;
+            pos = a.Position;
+            str = ['figure(''Color'',''white'',''Position'',[' num2str(pos) ']);'];
+            clipboard('copy',str);
+        end
+        
         % varargin{1}: line opacity
         function cl = getColor(n, varargin)
-            colrs = lines(20);
+            colrs = lines(max(n));
             if nargin >= 2
                 opacity = varargin{1};
+            else
+                opacity = [];
             end
-            cl = [colrs(n,:), opacity];
+            cl = [colrs(n,:), repmat(opacity,numel(n),1)];
         end
     end
 end
