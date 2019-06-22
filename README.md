@@ -1,4 +1,5 @@
-"# Modelling-and-control-of-mechatronic-systems-SSY156"
+# Modelling-and-control-of-mechatronic-systems-SSY156
+Repository for the course "Modelling and Control of Mechatronic Systems" - SSY156 at Chalmers University of Technology
 
 
 ## Assignment 01: Forward, inverse and inverse differential kinematics 
